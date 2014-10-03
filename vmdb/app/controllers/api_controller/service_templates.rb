@@ -64,7 +64,7 @@ class ApiController
       unless data.nil?
         data.each do |key, value|
           dkey = "dialog_#{key}"
-          options[:dialog][dkey] = value unless value.empty?
+          options[:dialog][dkey] = value unless value.nil? || value.empty?
         end
       end
 
@@ -82,6 +82,11 @@ class ApiController
                          :userid => requester_id, :message      => event_message)
 
       request.call_automate_event_queue("request_created")
+
+      # adding this here so that the correct 'href' value is added before 
+      # the results are sent off to the renderer
+      request['href'] = "#{@req[:base]}/services/#{request.id}"
+
       request
     end
   end
