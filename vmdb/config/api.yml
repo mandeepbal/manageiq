@@ -376,6 +376,8 @@
     - :service_templates
     :collection_actions:
       :post:
+      - :name: order
+        :identifier: svc_catalog_provision
       - :name: create       
         :identifier: st_catalog_new
       :patch:
