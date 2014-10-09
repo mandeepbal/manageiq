@@ -64,7 +64,7 @@ class ApiController
       unless data.nil?
         data.each do |key, value|
           dkey = "dialog_#{key}"
-          options[:dialog][dkey] = value unless value.empty?
+          options[:dialog][dkey] = value unless value.nil? or value.empty?
         end
       end
 
