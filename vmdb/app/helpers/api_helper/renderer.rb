@@ -72,9 +72,11 @@ module ApiHelper
       elsif resource.is_a?(Hash)
         if resource.has_key?('results')
           resource['results'].each do |r|
-            if r['href'].nil?
-              r['href'] = normalize_url_from_id(reftype, r.id)
-            end
+						unless @req[:action] == 'order'
+              if r['href'].nil?
+              	r['href'] = normalize_url_from_id(reftype, r.id)
+            	end
+						end
           end
         end
       end
