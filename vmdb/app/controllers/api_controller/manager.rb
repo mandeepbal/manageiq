@@ -44,9 +44,15 @@ class ApiController
     def patch_resource(type, id)
       patched_attrs = {}
       json_body.each do |patch_cmd|
-        action = patch_cmd["action"]
-        path   = patch_cmd["path"]
-        value  = patch_cmd["value"]
+        if patch_cmd.is_a?(Array) && patch_cmd.length == 2
+          action = "edit"
+          path, value = patch_cmd
+        else
+          action = patch_cmd["action"]
+          path   = patch_cmd["path"]  
+          value  = patch_cmd["value"]  
+        end
+
         if action.nil?
           api_log_info("Must specify an attribute action for each path command for the resource #{type}/#{id}")
         elsif path.nil?
@@ -67,7 +73,9 @@ class ApiController
             "Must specify and id for destroying a #{type} subcollection resource" if id.nil?
 
       parent_resource = parent_resource_obj
-      typed_target    = "delete_resource_#{type}"
+
+      # prepending {type} to keep it consistent with the '_create_resource'
+      typed_target    = "#{type}_delete_resource" 
       raise BadRequestError,
             "Cannot delete subcollection resources of type #{type}" unless respond_to?(typed_target)
 
@@ -129,7 +137,8 @@ class ApiController
         next if r.blank?
 
         collection, rid = parse_href(r["href"])
-        r.except!("id", "href") if collection == type && rid
+        r.except!("id") if collection == type && rid
+
         processed += 1
         update_one_collection(is_subcollection, target, type, rid, r)
       end

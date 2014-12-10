@@ -40,7 +40,8 @@ module ApiHelper
     #
     def render_resource(type, resource, opts = {})
       validate_response_format
-      render :json => resource_to_jbuilder(type, type, resource, opts).target!
+      reftype = opts[:is_subcollection] ? "#{@req[:collection]}/#{@req[:c_id]}/#{type}" : type
+      render :json => resource_to_jbuilder(type, reftype, resource, opts).target!
     end
 
     # Methods for Serialization as Jbuilder Objects.
@@ -55,14 +56,9 @@ module ApiHelper
           json.set! "#{opt_name}", opts[opt_name] if opts[opt_name]
         end
         json.resources resources.collect do |resource|
-          if opts[:expand_resources]
-            add_hash json, resource_to_jbuilder(type, reftype, resource, opts).attributes!
-          else
-            json.href normalize_id(reftype, resource["id"])
-          end
+          add_hash json, resource_to_jbuilder(type, reftype, resource, opts).attributes!
         end
         aspecs = get_aspecs(type, opts[:collection_actions], :collection, opts[:is_subcollection], reftype)
-        add_actions(json, aspecs, reftype)
       end
     end
 
@@ -70,6 +66,21 @@ module ApiHelper
       reftype = get_reftype(type, reftype, resource, opts)
       json    = Jbuilder.new
       json.ignore_nil!
+
+      if resource.respond_to?(:attributes)
+        json.href normalize_url_from_id(reftype, resource.id)
+      elsif resource.is_a?(Hash)
+        if resource.has_key?('results')
+          resource['results'].each do |r|
+						unless @req[:action] == 'order'
+              if r['href'].nil?
+              	r['href'] = normalize_url_from_id(reftype, r.id)
+            	end
+						end
+          end
+        end
+      end
+
       add_hash json, normalize_hash(reftype, resource), :render_attr
       #
       # Let's expand subcollections for objects if asked for
@@ -87,7 +98,6 @@ module ApiHelper
           expand_subcollection(json, sc, sctype, subresources)
         end
       end
-      expand_actions(json, type, opts)
       json
     end
 
@@ -141,10 +151,10 @@ module ApiHelper
     end
 
     #
-    # Render nothing for normal resource deletes.
+    # Return the deleted resource. 
     #
-    def render_normal_destroy
-      render :nothing => true, :status => 204
+    def render_normal_destroy(type, res = {})
+      render_resource type, res
     end
 
     #
@@ -199,25 +209,6 @@ module ApiHelper
     end
 
     #
-    # Let's expand actions
-    #
-    def expand_actions(json, type, opts)
-      if render_attr("actions")
-        href   = json.attributes!["id"]
-        aspecs = get_aspecs(type, opts[:resource_actions], :resource, opts[:is_subcollection], href)
-        add_actions(json, aspecs, type)
-      end
-    end
-
-    def add_actions(json, aspecs, type)
-      if aspecs && aspecs.size > 0
-        json.actions do |js|
-          aspecs.each { |action_spec| add_child js, normalize_hash(type, action_spec) }
-        end
-      end
-    end
-
-    #
     # Let's expand a subcollection
     #
     def expand_subcollection(json, sc, sctype, subresources)
@@ -233,9 +224,11 @@ module ApiHelper
           subresources.each do |scr|
             if expand?(sc) || scr["id"].nil?
               add_child js, normalize_hash(sctype, scr)
-            else
-              js.child! { |jsc| jsc.href normalize_id(sctype, scr["id"]) }
             end
+            js.child! { |jsc| 
+              jsc.href normalize_url_from_id(sctype, scr["id"]) 
+              jsc.id scr["id"]
+            }
           end
         end
       end

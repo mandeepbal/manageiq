@@ -64,7 +64,7 @@ class ApiController
 
     def validate_api_action
       return unless @req[:collection]
-      send("validate_#{@req[:method]}_method")
+      send("validate_#{@req[:method]}_method")    #ie. validate_patch_method
     end
 
     #
@@ -115,11 +115,11 @@ class ApiController
     # For Delete, Patch and Put, we need to make sure we're entitled for them.
     #
     def validate_patch_method
-      validate_method_action(:post, "edit")
+      validate_method_action(:patch, "edit")
     end
 
     def validate_put_method
-      validate_method_action(:post, "edit")
+      validate_method_action(:put, "edit")
     end
 
     def validate_delete_method
@@ -131,10 +131,34 @@ class ApiController
       cspec = collection_config[cname.to_sym]
       target = request_type_target.last
       aspec = cspec["#{target}_actions".to_sym]
-      action_hash = fetch_action_hash(aspec, method_name, action_name)
-      unless api_user_role_allows?(action_hash[:identifier])
-        raise Forbidden, "Use of the #{action_name} action is forbidden"
+      if aspec.nil?
+        opts = {:attempted_method => @req[:method]}
+        raise MethodNotAllowedError.new(opts)
       end
+
+      action_hash, temp = fetch_action_hash(aspec, method_name, action_name)
+
+      if action_hash.nil?
+        method_not_allowed(target, cspec)
+      end
+
+      unless api_user_role_allows?(action_hash[:identifier])
+        raise Forbidden, "Use of the '#{action_name}' action is forbidden"
+      end
+    end
+
+    def method_not_allowed(target, cspec)
+      opts = {
+        :msg => "HTTP method '#{@req[:method].upcase}' is not allowed.",
+        :allowed_methods => [] 
+      }
+
+      aspec = cspec["#{target}_actions".to_sym]
+      unless aspec.nil?
+        opts[:allowed_methods] = aspec.keys.map { |k| k.to_s.upcase }
+      end
+
+      raise MethodNotAllowedError.new(opts)
     end
 
     def request_type_target
@@ -153,7 +177,14 @@ class ApiController
       raise BadRequestError, "No actions are supported for #{cname} #{type}" unless cspec.key?(aspecnames.to_sym)
 
       aspec = cspec[aspecnames.to_sym]
-      action_hash = fetch_action_hash(aspec, mname, aname)
+      
+      # hack around the default 'create' action
+      action_hash, @req[:action] = fetch_action_hash(aspec, mname, aname)
+      if action_hash.nil?
+        method_not_allowed(target, cspec)
+      end
+      aname = @req[:action]
+
       raise BadRequestError, "Unsupported Action #{aname} for the #{cname} #{type} specified" if action_hash.blank?
       raise Forbidden, "Use of Action #{aname} is forbidden" unless api_user_role_allows?(action_hash[:identifier])
 
@@ -200,7 +231,7 @@ class ApiController
       aspec = cspec["#{cname}_subcollection_actions".to_sym]
       return unless aspec
 
-      action_hash = fetch_action_hash(aspec, mname, aname)
+      action_hash, temp = fetch_action_hash(aspec, mname, aname)
 
       unless api_user_role_allows?(action_hash[:identifier])
         raise Forbidden, "Use of Action #{aname} for the #{cname} sub-collection is forbidden"
@@ -208,7 +239,16 @@ class ApiController
     end
 
     def fetch_action_hash(aspec, method_name, action_name)
-      Array(aspec[method_name]).detect { |h| h[:name] == action_name }
+
+      unless method_name.to_s == 'post'
+        return Array(aspec[method_name]).detect { |h| h[:name] == action_name }, action_name
+      end
+
+      # There should only be one 'action' per 'post' method.
+      #
+      # This should make it easier to remove the 'action name' from the api.yml
+      # config in the future. 
+      return aspec[:post][0], aspec[:post][0][:name]
     end
   end
 end

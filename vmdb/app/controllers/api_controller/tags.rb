@@ -10,14 +10,16 @@ class ApiController
       object ? object.tags : {}
     end
 
-    def tags_assign_resource(object, _type, id = nil, data = nil)
+    def tags_create_resource(object, _type, id = nil, data = nil)
       category, name = tag_specified(id, data)
       ci_set_tag(object, category, name)   if category && name
+      tag_requested(id, data)
     end
 
-    def tags_unassign_resource(object, _type, id = nil, data = nil)
+    def tags_delete_resource(object, _type, id = nil, data = nil)
       category, name = tag_specified(id, data)
       ci_unset_tag(object, category, name) if category && name
+      tag_requested(id, data)
     end
 
     #
@@ -26,13 +28,29 @@ class ApiController
 
     private
 
+    def tag_requested(id, data)
+      klass  = collection_config[:tags][:klass].constantize
+      tag = klass.find(id) if id.to_i > 0 || false
+     
+      if !data["category"].nil? && !data["name"].nil?
+        tag_name = [TAG_NAMESPACE, data["category"], data["name"]].join("/")
+        tag = klass.find_by_name(tag_name)
+      end
+
+      if tag
+        tag[:href] = @req[:s_id] ? @req[:url] : "#{@req[:url]}/#{tag.id}"
+        return tag
+      end
+      false
+    end
+
     def tag_specified(id, data)
       if id.to_i > 0
         klass  = collection_config[:tags][:klass].constantize
         tagobj = klass.find(id)
         return tag_path_to_name(tagobj.name) unless tagobj.id.blank?
       end
-
+      
       parse_tag(data)
     end
 
@@ -63,13 +81,17 @@ class ApiController
     end
 
     def ci_set_tag(ci, category, name)
-      return true if ci.is_tagged_with?(name, :ns => "#{TAG_NAMESPACE}/#{category}")
-      Classification.classify(ci, category, name)
+      unless ci.is_tagged_with?(name, :ns => "#{TAG_NAMESPACE}/#{category}")
+        Classification.classify(ci, category, name)
+        return true
+      end
     end
 
     def ci_unset_tag(ci, category, name)
-      return true unless ci.is_tagged_with?(name, :ns => "#{TAG_NAMESPACE}/#{category}")
-      Classification.unclassify(ci, category, name)
+      if ci.is_tagged_with?(name, :ns => "#{TAG_NAMESPACE}/#{category}")
+        Classification.unclassify(ci, category, name)
+        return true
+      end
     end
   end
 end

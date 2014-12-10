@@ -50,6 +50,27 @@
     :collection_actions:
       :post:
       - :name: create
+  :chargebacks:
+    :description: Chargeback Rates 
+    :options:
+    - :collection
+    - :show
+    :methods: *70174834084700
+    :klass: ChargebackRate
+    :subcollections:
+    - :rates
+    :resource_actions:
+      :patch:
+      - :name: edit
+  :rates:
+    :description: Chargeback Rate Details
+    :options:
+    - :subcollection
+    :methods: *70174834084700
+    :klass: ChargebackRateDetail
+    :subresource_actions:
+      :patch:
+      - :name: edit
   :clusters:
     :description: Clusters
     :options:
@@ -273,6 +294,15 @@
       :post:
       - :name: create
         :identifier: vm_miq_request_new
+  :reports:
+    :description: Reports
+    :options:
+    - :collection
+    :methods: *70174834085860
+    :klass: MiqReport
+    :resource_actions:
+      :post:
+      - :name: create
   :request_tasks:
     :description: Request Tasks
     :options:
@@ -346,14 +376,16 @@
     - :service_templates
     :collection_actions:
       :post:
-      - :name: add
+      - :name: create       
         :identifier: st_catalog_new
+      :patch:
       - :name: edit
         :identifier: st_catalog_edit
+      :delete:
       - :name: delete
         :identifier: st_catalog_delete
     :resource_actions:
-      :post:
+      :patch:
       - :name: edit
         :identifier: st_catalog_edit
       :delete:
@@ -381,48 +413,35 @@
     :subcollections:
     - :tags
     - :service_requests
-    :collection_actions:
+    :subcollection_actions:  # /api/<collection>/<id>/service_templates
       :post:
-      - :name: edit
-        :identifier: catalogitem_edit
-      - :name: delete
-        :identifier: catalogitem_delete
-    :subcollection_actions:
-      :post:
-      - :name: edit
-        :identifier: catalogitem_edit
-      - :name: delete
-        :identifier: catalogitem_delete
       - :name: order
         :identifier: svc_catalog_provision
-      - :name: assign
+      - :name: create #assign
         :identifier: st_catalog_edit
-      - :name: unassign
-        :identifier: st_catalog_edit
-    :resource_actions:
-      :post:
-      - :name: edit
       :delete:
-      - :name: delete
-        :identifier: catalogitem_delete
-    :subresource_actions:
-      :post:
-      - :name: edit
+      - :name: delete #unassign
+        :identifier: st_catalog_edit
+    :resource_actions:  #/api/service_templates/<id>
+      :patch: 
+      - :name: edit 
         :identifier: catalogitem_edit
-      - :name: order
-        :identifier: svc_catalog_provision
-      - :name: assign
-        :identifier: st_catalog_edit
-      - :name: unassign
-        :identifier: st_catalog_edit
-      :delete:
+      :delete: 
       - :name: delete
         :identifier: catalogitem_delete
-    :tags_subcollection_actions:
+    :subresource_actions:  #/api/<collection>/<id>/service_templates/<id>
       :post:
-      - :name: assign
+      - :name: create #assign
+        :identifier: st_catalog_edit
+      :delete:
+      - :name: delete #unassign
+        :identifier: st_catalog_edit
+    :tags_subcollection_actions:  #/api/service_templates/<id>/tags
+      :post:
+      - :name: create #assign
         :identifier: catalogitem_tag
-      - :name: unassign
+      :delete:
+      - :name: delete #unassign
         :identifier: catalogitem_tag
   :services:
     :description: Services
@@ -434,26 +453,27 @@
     - :tags
     :collection_actions:
       :post:
-      - :name: edit
-        :identifier: service_edit
-      - :name: retire
-        :identifier: service_retire
-      - :name: delete
-        :identifier: service_delete
+      - :name: order
+        :identifier: svc_catalog_provision
     :resource_actions:
       :post:
-      - :name: edit
-        :identifier: service_edit
       - :name: retire
         :identifier: service_retire
+      :patch:
+      - :name: edit
+        :identifier: service_edit
+      :put:
+      - :name: edit
+        :identifier: service_edit
       :delete:
       - :name: delete
         :identifier: service_delete
     :tags_subcollection_actions:
       :post:
-      - :name: assign
+      - :name: create   #assign
         :identifier: service_tag
-      - :name: unassign
+      :delete:
+      - :name: delete   #unassign
         :identifier: service_tag
   :tags:
     :description: Tags
@@ -463,12 +483,14 @@
     :klass: Tag
     :subcollection_actions:
       :post:
-      - :name: assign
-      - :name: unassign
+      - :name: create
+      :delete:
+      - :name: delete
     :subresource_actions:
       :post:
-      - :name: assign
-      - :name: unassign
+      - :name: create
+      :delete:
+      - :name: delete
   :tasks:
     :description: Request Tasks
     :options:
@@ -503,7 +525,7 @@
         :identifier: miq_template_delete
     :tags_subcollection_actions:
       :post:
-      - :name: assign
+      - :name:  
         :identifier: miq_template_tag
       - :name: unassign
         :identifier: miq_template_tag
